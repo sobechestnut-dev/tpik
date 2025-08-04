@@ -3,8 +3,10 @@
 tpik - Enhanced TMUX Session Picker TUI Application
 
 A beautiful, responsive terminal interface for managing tmux sessions.
+Completely rewritten for reliability and modern aesthetics.
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -12,19 +14,20 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 from textual.app import App, ComposeResult
-from textual.containers import Container, Horizontal, Vertical
+from textual.containers import Container, Horizontal, Vertical, Center
 from textual.widgets import (
     Header, Footer, DataTable, Static, Button, Input, Label,
-    Pretty, ProgressBar, Select, Switch
+    Pretty, ProgressBar, Select, Switch, ListItem, ListView
 )
 from textual.reactive import reactive
 from textual.message import Message
 from textual.screen import Screen
-from textual import events
+from textual import events, work
 from rich.console import Console
 from rich.text import Text
 from rich.panel import Panel
 from rich.table import Table
+from rich.align import Align
 
 
 class TmuxSession:
@@ -47,12 +50,12 @@ class TmuxSession:
         """Get the status icon for this session."""
         if self.attached:
             return "●"  # Green dot for attached
-        return " "
+        return "○"  # Empty circle for detached
         
     @property
     def favorite_icon(self) -> str:
         """Get the favorite icon for this session."""
-        return "⭐" if self.is_favorite else " "
+        return "★" if self.is_favorite else "☆"
 
 
 class TmuxManager:
@@ -67,17 +70,22 @@ class TmuxManager:
         # Ensure config directory exists
         self.config_dir.mkdir(parents=True, exist_ok=True)
         
+        # Create empty files if they don't exist
+        for file_path in [self.favorites_file, self.templates_file, self.history_file]:
+            if not file_path.exists():
+                file_path.write_text("")
+        
     def is_tmux_available(self) -> bool:
         """Check if tmux is installed and available."""
         try:
-            subprocess.run(["tmux", "-V"], capture_output=True, check=True)
+            result = subprocess.run(["tmux", "-V"], capture_output=True, check=True)
             return True
         except (subprocess.CalledProcessError, FileNotFoundError):
             return False
             
     def is_inside_tmux(self) -> bool:
         """Check if we're currently inside a tmux session."""
-        return "TMUX" in subprocess.os.environ
+        return "TMUX" in os.environ
         
     def get_current_session(self) -> Optional[str]:
         """Get the name of the current tmux session if inside one."""
@@ -106,13 +114,13 @@ class TmuxManager:
             favorites = self.load_favorites()
             
             for line in result.stdout.strip().split("\n"):
-                if not line:
+                if not line.strip():
                     continue
                     
                 parts = line.split("|")
                 if len(parts) >= 4:
-                    name, created_timestamp, windows, attached, window_preview = (
-                        parts + [""])[:5]
+                    name, created_timestamp, windows, attached = parts[:4]
+                    window_preview = parts[4] if len(parts) > 4 else ""
                     
                     # Convert timestamp to readable format
                     try:
@@ -124,7 +132,7 @@ class TmuxManager:
                     session = TmuxSession(
                         name=name,
                         created=created, 
-                        windows=int(windows),
+                        windows=int(windows) if windows.isdigit() else 0,
                         attached=attached == "1",
                         window_preview=window_preview
                     )
@@ -136,51 +144,89 @@ class TmuxManager:
         except subprocess.CalledProcessError:
             return []
             
-    def attach_session(self, session_name: str) -> bool:
-        """Attach to a tmux session."""
+    def attach_session(self, session_name: str) -> tuple[bool, str]:
+        """Attach to a tmux session. Returns (success, message)."""
         try:
             if self.is_inside_tmux():
                 # Switch to session if inside tmux
-                subprocess.run(["tmux", "switch-client", "-t", session_name], check=True)
+                result = subprocess.run(
+                    ["tmux", "switch-client", "-t", session_name], 
+                    capture_output=True, text=True, check=False
+                )
+                if result.returncode == 0:
+                    return True, f"Switched to session '{session_name}'"
+                else:
+                    return False, f"Failed to switch: {result.stderr.strip()}"
             else:
-                # Attach to session from outside tmux
-                subprocess.run(["tmux", "attach-session", "-t", session_name], check=True)
-            return True
-        except subprocess.CalledProcessError:
-            return False
+                # For attaching from outside tmux, we need to handle this differently
+                # We'll use a different approach to avoid jumping issues
+                result = subprocess.run(
+                    ["tmux", "has-session", "-t", session_name],
+                    capture_output=True, check=False
+                )
+                if result.returncode == 0:
+                    # Session exists, now we need to prepare for attachment
+                    # The app will exit and let the wrapper script handle attachment
+                    return True, f"Preparing to attach to '{session_name}'"
+                else:
+                    return False, f"Session '{session_name}' does not exist"
+        except Exception as e:
+            return False, f"Error: {str(e)}"
             
-    def create_session(self, session_name: str, start_directory: Optional[str] = None) -> bool:
-        """Create a new tmux session."""
+    def create_session(self, session_name: str, start_directory: Optional[str] = None) -> tuple[bool, str]:
+        """Create a new tmux session. Returns (success, message)."""
         try:
+            # Check if session already exists
+            result = subprocess.run(
+                ["tmux", "has-session", "-t", session_name],
+                capture_output=True, check=False
+            )
+            if result.returncode == 0:
+                return False, f"Session '{session_name}' already exists"
+            
             cmd = ["tmux", "new-session", "-d", "-s", session_name]
-            if start_directory:
+            if start_directory and os.path.exists(start_directory):
                 cmd.extend(["-c", start_directory])
-            subprocess.run(cmd, check=True)
-            return True
-        except subprocess.CalledProcessError:
-            return False
+                
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            if result.returncode == 0:
+                return True, f"Created session '{session_name}'"
+            else:
+                return False, f"Failed to create session: {result.stderr.strip()}"
+        except Exception as e:
+            return False, f"Error: {str(e)}"
             
-    def kill_session(self, session_name: str) -> bool:
-        """Kill a tmux session."""
+    def kill_session(self, session_name: str) -> tuple[bool, str]:
+        """Kill a tmux session. Returns (success, message)."""
         try:
-            subprocess.run(["tmux", "kill-session", "-t", session_name], check=True)
-            return True
-        except subprocess.CalledProcessError:
-            return False
+            result = subprocess.run(
+                ["tmux", "kill-session", "-t", session_name], 
+                capture_output=True, text=True, check=False
+            )
+            if result.returncode == 0:
+                return True, f"Killed session '{session_name}'"
+            else:
+                return False, f"Failed to kill session: {result.stderr.strip()}"
+        except Exception as e:
+            return False, f"Error: {str(e)}"
             
     def load_favorites(self) -> set:
         """Load favorite sessions from config file."""
-        if not self.favorites_file.exists():
-            return set()
         try:
-            return set(self.favorites_file.read_text().strip().split("\n"))
+            if not self.favorites_file.exists():
+                return set()
+            content = self.favorites_file.read_text().strip()
+            if not content:
+                return set()
+            return set(line.strip() for line in content.split("\n") if line.strip())
         except Exception:
             return set()
             
     def save_favorites(self, favorites: set) -> None:
         """Save favorite sessions to config file."""
         try:
-            self.favorites_file.write_text("\n".join(sorted(favorites)) + "\n")
+            content = "\n".join(sorted(favorites))
+            self.favorites_file.write_text(content + "\n" if content else "")
         except Exception:
             pass
             
@@ -188,7 +234,7 @@ class TmuxManager:
         """Toggle favorite status of a session."""
         favorites = self.load_favorites()
         if session_name in favorites:
-            favorites.remove(session_name)
+            favorites.discard(session_name)
             is_favorite = False
         else:
             favorites.add(session_name)
@@ -197,87 +243,178 @@ class TmuxManager:
         return is_favorite
 
 
-class SessionTable(DataTable):
-    """Custom DataTable for displaying tmux sessions."""
+class SessionListView(ListView):
+    """Custom ListView for displaying tmux sessions with modern styling."""
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.cursor_type = "row"
-        self.zebra_stripes = True
-        
-    def on_mount(self) -> None:
-        """Set up the table columns."""
-        self.add_column("", width=3, key="fav")  # Favorite icon
-        self.add_column("", width=3, key="status")  # Status icon  
-        self.add_column("Session", width=20, key="name")
-        self.add_column("Created", width=12, key="created")
-        self.add_column("Win", width=5, key="windows")
-        self.add_column("Window", width=15, key="preview")
 
 
 class TpikApp(App):
-    """Main tpik TUI application."""
+    """Main tpik TUI application with modern, sleek design."""
     
     CSS = """
     Screen {
         background: $surface;
+        color: $text;
     }
     
-    .header {
-        background: $primary;
-        color: $text;
+    .app-header {
+        background: linear-gradient(90deg, #0f4c75 0%, #3282b8 50%, #bbe1fa 100%);
+        color: white;
         text-align: center;
-        height: 3;
+        height: 5;
         content-align: center middle;
+        border: none;
     }
     
     .main-container {
         height: 1fr;
-        padding: 1;
+        padding: 1 2;
+        background: $surface;
     }
     
-    .session-table {
+    .search-container {
+        height: 3;
+        padding: 0 1;
+        margin: 1 0;
+    }
+    
+    .search-input {
+        border: solid $primary;
+        background: $surface-lighten-1;
+        color: $text;
+        border-title-color: $primary;
+        border-title-style: bold;
+    }
+    
+    .session-container {
         height: 1fr;
         border: solid $accent;
         border-title-color: $accent;
-        border-title-align: center;
+        border-title-style: bold;
+        background: $surface-lighten-1;
+        margin: 1 0;
     }
     
-    .controls {
+    .session-list {
+        background: transparent;
+        color: $text;
+        scrollbar-background: $surface-darken-1;
+        scrollbar-color: $accent;
+        scrollbar-color-hover: $primary;
+    }
+    
+    .session-list > .session-list--option {
+        padding: 1 2;
+        color: $text;
+        background: transparent;
+    }
+    
+    .session-list > .session-list--option-highlighted {
+        background: linear-gradient(90deg, $primary 0%, $accent 100%);
+        color: white;
+        text-style: bold;
+    }
+    
+    .controls-container {
         height: auto;
-        padding: 1 0;
-        background: $panel;
+        padding: 1;
+        background: $surface-darken-1;
+        border: solid $accent;
+        border-title-color: $accent;
+        border-title-style: bold;
+    }
+    
+    .control-buttons {
+        layout: horizontal;
+        height: auto;
+        align: center middle;
+        width: 100%;
+    }
+    
+    .primary-btn {
+        margin: 0 1;
+        min-width: 12;
+        background: $primary;
+        color: white;
+        border: none;
+        text-style: bold;
+    }
+    
+    .primary-btn:hover {
+        background: $primary-lighten-1;
+        text-style: bold;
+    }
+    
+    .success-btn {
+        margin: 0 1;
+        min-width: 12;
+        background: $success;
+        color: white;
+        border: none;
+        text-style: bold;
+    }
+    
+    .success-btn:hover {
+        background: $success-lighten-1;
+        text-style: bold;
+    }
+    
+    .warning-btn {
+        margin: 0 1;
+        min-width: 12;
+        background: $warning;
+        color: black;
+        border: none;
+        text-style: bold;
+    }
+    
+    .warning-btn:hover {
+        background: $warning-lighten-1;
+        text-style: bold;
+    }
+    
+    .error-btn {
+        margin: 0 1;
+        min-width: 12;
+        background: $error;
+        color: white;
+        border: none;
+        text-style: bold;
+    }
+    
+    .error-btn:hover {
+        background: $error-lighten-1;
+        text-style: bold;
+    }
+    
+    .secondary-btn {
+        margin: 0 1;
+        min-width: 12;
+        background: $surface-lighten-2;
+        color: $text;
+        border: solid $accent;
+        text-style: bold;
+    }
+    
+    .secondary-btn:hover {
+        background: $surface-lighten-3;
+        text-style: bold;
     }
     
     .status-bar {
         height: 3;
-        background: $surface-lighten-1;
-        padding: 1;
-    }
-    
-    Button {
-        margin: 0 1;
-        min-width: 12;
-    }
-    
-    .search-container {
-        height: auto;
-        padding: 0 1;
-    }
-    
-    Input {
-        margin: 0 1;
-    }
-    
-    .quick-actions {
-        layout: horizontal;
-        height: auto;
-        align: center middle;
+        background: linear-gradient(90deg, $surface-darken-2 0%, $surface-darken-1 100%);
+        color: $text;
+        padding: 1 2;
+        border: solid $accent;
+        text-style: italic;
     }
     """
     
-    TITLE = "tpik - TMUX Session Picker v3.0"
-    SUB_TITLE = "Enhanced Terminal Interface"
+    TITLE = "tpik - Enhanced TMUX Session Manager"
+    SUB_TITLE = "Modern Terminal Interface v3.0"
     
     # Reactive attributes
     sessions: reactive[List[TmuxSession]] = reactive([])
@@ -285,67 +422,85 @@ class TpikApp(App):
     search_query: reactive[str] = reactive("")
     show_favorites_only: reactive[bool] = reactive(False)
     current_session: reactive[Optional[str]] = reactive(None)
+    selected_session_name: reactive[Optional[str]] = reactive(None)
     
     def __init__(self):
         super().__init__()
         self.tmux = TmuxManager()
-        self.session_table: Optional[SessionTable] = None
+        self.session_list: Optional[ListView] = None
         
     def compose(self) -> ComposeResult:
-        """Compose the main UI."""
+        """Compose the modern UI."""
         
-        # Header
+        # Modern header with gradient
         yield Static(
-            "[bold cyan]╔══════════════════════════════════════════════════════════════╗\\n"
-            "║                    TMUX SESSION PICKER v3.0                 ║\\n" 
-            "║                      Enhanced Edition                        ║\\n"
-            "╚══════════════════════════════════════════════════════════════╝[/]",
-            classes="header"
+            Align.center(
+                "[bold white]╭─────────────────────────────────────────────────────────────╮\n"
+                "│            🚀 TPIK - Enhanced TMUX Manager 🚀            │\n"
+                "│                   Modern Terminal Interface                  │\n"
+                "╰─────────────────────────────────────────────────────────────╯[/]"
+            ),
+            classes="app-header"
         )
         
         # Main container
         with Container(classes="main-container"):
-            # Search bar
+            # Search bar with modern styling
             with Container(classes="search-container"):
-                yield Input(placeholder="Search sessions...", id="search")
+                search_input = Input(
+                    placeholder="🔍 Search sessions...", 
+                    id="search",
+                    classes="search-input"
+                )
+                search_input.border_title = "Search"
+                yield search_input
                 
-            # Session table
-            self.session_table = SessionTable(id="sessions")
-            self.session_table.border_title = "Sessions"
-            yield self.session_table
-            
-            # Controls
-            with Container(classes="controls"):
-                with Horizontal(classes="quick-actions"):
-                    yield Button("Attach [Enter]", id="attach", variant="primary")
-                    yield Button("New [n]", id="new", variant="success") 
-                    yield Button("Kill [Del]", id="kill", variant="error")
-                    yield Button("⭐ Favorite", id="favorite", variant="warning")
-                    yield Button("Favorites", id="filter-fav")
-                    yield Button("Refresh [F5]", id="refresh")
-                    yield Button("Quit [q]", id="quit")
+            # Session list container with modern styling
+            with Container(classes="session-container"):
+                self.session_list = ListView(id="sessions", classes="session-list")
+                container = Container(self.session_list)
+                container.border_title = "Sessions"
+                yield container
+                
+            # Modern control buttons
+            with Container(classes="controls-container"):
+                controls_container = Container(classes="control-buttons")
+                controls_container.border_title = "Controls"
+                with controls_container:
+                    yield Button("🎯 Attach [Enter]", id="attach", classes="primary-btn")
+                    yield Button("✨ New [N]", id="new", classes="success-btn") 
+                    yield Button("💀 Kill [Del]", id="kill", classes="error-btn")
+                    yield Button("⭐ Favorite [Space]", id="favorite", classes="warning-btn")
+                    yield Button("🔖 Filter Favs [F]", id="filter-fav", classes="secondary-btn")
+                    yield Button("🔄 Refresh [F5]", id="refresh", classes="secondary-btn")
+                    yield Button("❌ Quit [Q]", id="quit", classes="secondary-btn")
                     
-        # Status bar
-        yield Static("Ready", id="status", classes="status-bar")
+        # Modern status bar
+        yield Static("🟢 Ready - Welcome to tpik!", id="status", classes="status-bar")
         
     async def on_mount(self) -> None:
         """Initialize the app when mounted."""
         # Check tmux availability
         if not self.tmux.is_tmux_available():
+            await self.update_status("❌ Error: tmux is not installed or not available")
             await self.action_quit()
-            print("Error: tmux is not installed or not available")
             return
             
         # Get current session if inside tmux
         self.current_session = self.tmux.get_current_session()
+        if self.current_session:
+            await self.update_status(f"📍 Inside session: {self.current_session}")
         
         # Load initial sessions
         await self.refresh_sessions()
         
+    @work(exclusive=True)
     async def refresh_sessions(self) -> None:
         """Refresh the session list."""
+        await self.update_status("🔄 Refreshing sessions...")
         self.sessions = self.tmux.get_sessions()
         await self.update_filtered_sessions()
+        await self.update_status(f"✅ Found {len(self.sessions)} sessions")
         
     async def update_filtered_sessions(self) -> None:
         """Update filtered sessions based on search and filters."""
@@ -361,39 +516,51 @@ class TpikApp(App):
             filtered = [s for s in filtered if query in s.name.lower()]
             
         self.filtered_sessions = filtered
-        await self.update_table()
+        await self.update_session_list()
         
-    async def update_table(self) -> None:
-        """Update the session table with current data."""
-        if not self.session_table:
+    async def update_session_list(self) -> None:
+        """Update the session list with current data."""
+        if not self.session_list:
             return
             
-        # Clear existing rows
-        self.session_table.clear()
+        # Clear existing items
+        self.session_list.clear()
         
-        # Add session rows
+        # Add session items with rich formatting
         for session in self.filtered_sessions:
-            fav_icon = Text(session.favorite_icon, style="yellow")
-            status_icon = Text(session.status_icon, style="green" if session.attached else "dim")
-            name_style = "bold green" if session.attached else "default"
+            # Create rich display text
+            status_color = "green" if session.attached else "cyan"
+            name_style = "bold green" if session.attached else "white"
             
-            self.session_table.add_row(
-                fav_icon,
-                status_icon, 
-                Text(session.name, style=name_style),
-                Text(session.created, style="dim"),
-                Text(str(session.windows), style="cyan"),
-                Text(session.window_preview, style="dim"),
-            )
+            display_text = Text()
+            display_text.append(f"{session.favorite_icon} ", style="yellow")
+            display_text.append(f"{session.status_icon} ", style=status_color)
+            display_text.append(f"{session.name}", style=name_style)
+            display_text.append(f" ({session.windows}w)", style="cyan")
+            display_text.append(f" - {session.created}", style="dim")
+            
+            if session.window_preview:
+                display_text.append(f" [{session.window_preview}]", style="dim")
+            
+            if session.name == self.current_session:
+                display_text.append(" [CURRENT]", style="bold magenta")
+                
+            list_item = ListItem(display_text)
+            list_item.data = session.name  # Store session name for reference
+            self.session_list.append(list_item)
             
     def get_selected_session(self) -> Optional[TmuxSession]:
         """Get the currently selected session."""
-        if not self.session_table or not self.filtered_sessions:
+        if not self.session_list or not self.filtered_sessions:
             return None
             
-        cursor_row = self.session_table.cursor_row
-        if 0 <= cursor_row < len(self.filtered_sessions):
-            return self.filtered_sessions[cursor_row]
+        try:
+            highlighted = self.session_list.highlighted_child
+            if highlighted and hasattr(highlighted, 'data'):
+                session_name = highlighted.data
+                return next((s for s in self.filtered_sessions if s.name == session_name), None)
+        except:
+            pass
         return None
         
     async def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -411,7 +578,7 @@ class TpikApp(App):
         elif button_id == "filter-fav":
             await self.action_toggle_favorites_filter()
         elif button_id == "refresh":
-            await self.action_refresh()
+            await self.refresh_sessions()
         elif button_id == "quit":
             await self.action_quit()
             
@@ -434,7 +601,7 @@ class TpikApp(App):
         elif key == "f":
             await self.action_toggle_favorites_filter()
         elif key == "f5":
-            await self.action_refresh()
+            await self.refresh_sessions()
         elif key == "q":
             await self.action_quit()
         elif key == "space":
@@ -444,85 +611,90 @@ class TpikApp(App):
         """Attach to the selected session."""
         session = self.get_selected_session()
         if not session:
-            await self.update_status("No session selected")
+            await self.update_status("⚠️ No session selected")
             return
             
-        await self.update_status(f"Attaching to {session.name}...")
-        success = self.tmux.attach_session(session.name)
+        await self.update_status(f"🎯 Attaching to {session.name}...")
+        success, message = self.tmux.attach_session(session.name)
         
         if success:
-            # Exit the app since we're attaching
-            await self.action_quit()
+            if self.tmux.is_inside_tmux():
+                await self.update_status(f"✅ {message}")
+                # Don't quit when switching inside tmux
+                await self.refresh_sessions()
+            else:
+                # Store the session name for the wrapper script
+                session_file = Path.home() / ".tpik_session"
+                session_file.write_text(session.name)
+                await self.update_status(f"✅ {message}")
+                await self.action_quit()
         else:
-            await self.update_status(f"Failed to attach to {session.name}")
+            await self.update_status(f"❌ {message}")
             
     async def action_new_session(self) -> None:
         """Create a new session."""
-        # For now, use a simple naming scheme
-        # TODO: Add a proper dialog for session creation
-        session_name = f"new-session-{len(self.sessions) + 1}"
+        session_name = f"session-{len(self.sessions) + 1:03d}"
         
-        await self.update_status(f"Creating session {session_name}...")
-        success = self.tmux.create_session(session_name)
+        await self.update_status(f"✨ Creating session {session_name}...")
+        success, message = self.tmux.create_session(session_name)
         
         if success:
-            await self.update_status(f"Created session {session_name}")
+            await self.update_status(f"✅ {message}")
             await self.refresh_sessions()
         else:
-            await self.update_status(f"Failed to create session {session_name}")
+            await self.update_status(f"❌ {message}")
             
     async def action_kill_session(self) -> None:
         """Kill the selected session."""
         session = self.get_selected_session()
         if not session:
-            await self.update_status("No session selected")
+            await self.update_status("⚠️ No session selected")
             return
             
         # Don't kill current session
         if session.name == self.current_session:
-            await self.update_status("Cannot kill current session")
+            await self.update_status("🚫 Cannot kill current session")
             return
             
-        await self.update_status(f"Killing session {session.name}...")
-        success = self.tmux.kill_session(session.name)
+        await self.update_status(f"💀 Killing session {session.name}...")
+        success, message = self.tmux.kill_session(session.name)
         
         if success:
-            await self.update_status(f"Killed session {session.name}")
+            await self.update_status(f"✅ {message}")
             await self.refresh_sessions()
         else:
-            await self.update_status(f"Failed to kill session {session.name}")
+            await self.update_status(f"❌ {message}")
             
     async def action_toggle_favorite(self) -> None:
         """Toggle favorite status of selected session."""
         session = self.get_selected_session()
         if not session:
-            await self.update_status("No session selected")
+            await self.update_status("⚠️ No session selected")
             return
             
         is_fav = self.tmux.toggle_favorite(session.name)
         session.is_favorite = is_fav
         
         status = "Added to" if is_fav else "Removed from"
-        await self.update_status(f"{status} favorites: {session.name}")
-        await self.update_table()
+        icon = "⭐" if is_fav else "☆"
+        await self.update_status(f"{icon} {status} favorites: {session.name}")
+        await self.update_session_list()
         
     async def action_toggle_favorites_filter(self) -> None:
         """Toggle the favorites filter."""
         self.show_favorites_only = not self.show_favorites_only
-        filter_text = "on" if self.show_favorites_only else "off"
-        await self.update_status(f"Favorites filter: {filter_text}")
+        filter_text = "ON" if self.show_favorites_only else "OFF"
+        icon = "🔖" if self.show_favorites_only else "📋"
+        await self.update_status(f"{icon} Favorites filter: {filter_text}")
         await self.update_filtered_sessions()
-        
-    async def action_refresh(self) -> None:
-        """Refresh the session list."""
-        await self.update_status("Refreshing sessions...")
-        await self.refresh_sessions()
-        await self.update_status("Sessions refreshed")
         
     async def update_status(self, message: str) -> None:
         """Update the status bar."""
-        status_bar = self.query_one("#status", Static)
-        status_bar.update(message)
+        try:
+            status_bar = self.query_one("#status", Static)
+            status_bar.update(message)
+        except:
+            pass  # Ignore if status bar not found
 
 
 def main() -> None:
