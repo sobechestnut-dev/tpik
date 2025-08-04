@@ -6,13 +6,13 @@
 set -e
 
 # Colors
-RED='\\033[0;31m'
-GREEN='\\033[0;32m'
-YELLOW='\\033[1;33m'
-BLUE='\\033[0;34m'
-CYAN='\\033[0;36m'
-BOLD='\\033[1m'
-NC='\\033[0m' # No Color
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m' # No Color
 
 # Configuration
 INSTALL_DIR="$HOME/.local/bin"
@@ -73,6 +73,16 @@ check_dependencies() {
     # Check pip
     if ! python3 -m pip --version &> /dev/null; then
         print_error "pip is required but not available"
+        exit 1
+    fi
+    
+    # Check python3-venv
+    if ! python3 -m venv --help &> /dev/null; then
+        print_error "python3-venv is required but not available"
+        echo "Please install python3-venv first:"
+        echo "  Ubuntu/Debian: sudo apt install python3-venv"
+        echo "  RHEL/CentOS: sudo yum install python3-venv"
+        echo "  macOS: Should be included with Python 3"
         exit 1
     fi
     
