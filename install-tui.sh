@@ -22,7 +22,7 @@ REPO_URL="https://github.com/sobechestnut-dev/tpik"
 print_header() {
     echo -e "${CYAN}${BOLD}"
     echo "╔══════════════════════════════════════════════════════════════╗"
-    echo "║                    tpik TUI Installer v3.0                  ║"
+    echo "║                    tpik TUI Installer v3.0                   ║"
     echo "║              Enhanced TMUX Session Picker                    ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
