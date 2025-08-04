@@ -113,7 +113,7 @@ install_package() {
     python -m pip install --upgrade pip
     
     # Install from git repository
-    python -m pip install "git+${REPO_URL}@feature/tui-migration"
+    python -m pip install "git+${REPO_URL}@main"
     
     print_success "Package installed successfully"
 }
