@@ -1,13 +1,13 @@
 TMUX Picker Script - Technical Implementation Guide
 
-ğŸ” Overview
+ğŸ” Overview
 
 This Bash script is a terminal-based utility to visually select, create, or close active tmux sessions using a keyboard-driven menu. Itâ€™s designed for quick access, minimal typing, and enhanced usability from the command line.
 
 
 ---
 
-ğŸ“ File Structure
+ğŸ“ File Structure
 
 Recommended location:
 
@@ -36,7 +36,7 @@ ANSI color support in terminal
 
 ---
 
-ğŸ§ Script Logic Breakdown
+ï¿½ Script Logic Breakdown
 
 1. Header and Styling Setup
 
@@ -129,7 +129,7 @@ tmux attach-session -t "${sessions[$index]}"
 
 ---
 
-ğŸš Performance and UX Enhancements
+ï¿½ Performance and UX Enhancements
 
 Immediate visual feedback
 
@@ -141,7 +141,7 @@ Action hints with color and keybindings
 
 ---
 
-ğŸ¤ Future Extensions (Optional)
+ï¿½ Future Extensions (Optional)
 
 Feature	Tool/Dependency	Benefit
 
@@ -154,7 +154,7 @@ Mouse support	dialog	Clickable tmux menu
 
 ---
 
-ğŸ› Troubleshooting
+ï¿½ Troubleshooting
 
 Problem	Solution
 
