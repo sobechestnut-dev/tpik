@@ -1,209 +1,316 @@
-# 🎯 tpik - Enhanced TMUX Session Picker
+# 🚀 tpik - Modern TMUX Session Manager
 
-> A powerful, interactive tmux session manager with favorites, templates, search, and intelligent tmux integration.
+> A beautiful, modern Python TUI for managing tmux sessions with style and efficiency.
 
-![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Shell](https://img.shields.io/badge/shell-bash-orange.svg)
+![Python](https://img.shields.io/badge/python-3.8+-orange.svg)
+![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-lightgrey.svg)
 
-## ✨ Features
+## ✨ What's New in v3.0
 
-### 🚀 **Core Functionality**
-- **Interactive session browser** with rich, color-coded display
-- **One-key session switching** - press `1-9` to instantly attach/switch
-- **Smart tmux integration** - detects when running inside tmux sessions
-- **Session details** - creation time, window count, attachment status, window preview
+🎨 **Complete Rewrite**: Migrated from bash to modern Python TUI using Textual framework  
+🌈 **Beautiful Interface**: Gradient headers, modern styling, and emoji indicators  
+⚡ **Rock Solid**: Fixed all runtime errors and session jumping issues  
+🔧 **Professional**: Installation system with virtual environments and proper packaging  
 
-### ⭐ **Power User Features**
-- **Favorites system** - star your most-used sessions for quick access
-- **Recent sessions** - automatic history tracking of your 50 most recent sessions
-- **Session templates** - save and reuse project setups with custom directories and commands
-- **Live search** - filter sessions by name in real-time
-- **Advanced filtering** - toggle between all, favorites, or recent sessions
+---
 
-### 🎛️ **TMUX Integration**
-- **Context-aware interface** - different menus when inside vs outside tmux
-- **Session switching** - seamlessly switch between sessions without detaching
-- **Detach & reopen** - `[d]` key detaches and reopens picker outside tmux
-- **Native integration** - `[w]` key opens tmux's built-in session chooser
+## 🎯 Features
 
-### 🎨 **User Experience**
-- **Rich visual indicators**: ⭐ favorites, ● attached sessions
-- **Comprehensive help system** - `[h]` for full hotkey reference
-- **Quick help line** - always-visible command reference
-- **Smart defaults** - Enter key for quick attach, context-sensitive quit behavior
+### 🖥️ **Modern Terminal Interface**
+- **Beautiful TUI** built with Textual framework for stunning visuals
+- **Gradient header** with modern styling and emoji indicators
+- **Rich session display** with colors, status icons, and metadata
+- **Responsive design** that works perfectly on all screen sizes
+- **Mouse and keyboard support** for maximum accessibility
+
+### ⭐ **Smart Session Management**
+- **Favorites system** - star sessions for quick access with persistent storage
+- **Live search** - filter sessions in real-time as you type
+- **Status indicators** - see attached (●) vs detached (○) sessions at a glance
+- **Session metadata** - creation time, window count, and current window info
+- **Current session highlighting** - clearly shows which session you're in
+
+### 🎛️ **Advanced TMUX Integration**
+- **Smart context detection** - different behavior inside vs outside tmux
+- **Session switching** - seamless switching without detaching when inside tmux  
+- **Safe attachment** - proper handling to prevent session jumping issues
+- **Error handling** - comprehensive error messages and recovery
+
+### 🔍 **Powerful Filtering & Search**
+- **Real-time search** - filter sessions as you type
+- **Favorites filter** - toggle to show only starred sessions
+- **Search highlighting** - visual feedback for active filters
+- **Quick clear** - easily reset all filters
+
+---
 
 ## 📦 Installation
 
-### Quick Install (Recommended)
+### Automatic Installation (Recommended)
 ```bash
-curl -sSL https://raw.githubusercontent.com/sobechestnut-dev/tpik/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/sobechestnut-dev/tpik/main/install-tui.sh | bash
 ```
 
-### Manual Install
+This will:
+- ✅ Check all dependencies (Python 3.8+, tmux, python3-venv)
+- ✅ Create an isolated virtual environment
+- ✅ Install tpik from GitHub with all dependencies
+- ✅ Set up the `tpik` command and `tp` alias
+- ✅ Create configuration directories
+
+### Manual Installation
 ```bash
-# Download the script
-curl -sSL https://raw.githubusercontent.com/sobechestnut-dev/tpik/main/scripts/tpik.sh -o ~/scripts/tpik.sh
+# Clone the repository
+git clone https://github.com/sobechestnut-dev/tpik.git
+cd tpik
 
-# Make it executable
-chmod +x ~/scripts/tpik.sh
+# Create virtual environment
+python3 -m venv ~/.local/share/tpik
+source ~/.local/share/tpik/bin/activate
 
-# Add alias to your shell config (~/.bashrc, ~/.zshrc, etc.)
-echo 'alias tp="~/scripts/tpik.sh"' >> ~/.bashrc
+# Install dependencies
+pip install textual rich
+
+# Install tpik
+pip install -e .
+
+# Create wrapper script
+mkdir -p ~/.local/bin
+cat > ~/.local/bin/tpik << 'EOF'
+#!/bin/bash
+exec "$HOME/.local/share/tpik/bin/python" -m tpik.app "$@"
+EOF
+chmod +x ~/.local/bin/tpik
+
+# Add to PATH and create alias
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+echo 'alias tp="tpik"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-### Git Clone
-```bash
-git clone https://github.com/sobechestnut-dev/tpik.git
-cd tpik
-chmod +x scripts/tpik.sh
-# Create alias or symlink as preferred
-```
+---
 
 ## 🎮 Usage
 
-### Basic Usage
+### Launch tpik
 ```bash
-tp          # Launch the picker
+tpik        # Launch the modern TUI
 # or
-tpik.sh     # Direct script execution
+tp          # Same as tpik (alias)
 ```
 
-### Inside TMUX Sessions
-When you run `tp` from within a tmux session, you get enhanced functionality:
-- **Instant session switching** without detaching
-- **`[d]` key** - detach and reopen picker
-- **`[w]` key** - open native tmux session chooser
-- **Context-aware help** and menu options
-
-## ⌨️ Hotkeys Reference
-
-### Navigation
-| Key | Action | Description |
-|-----|--------|-------------|
-| `1-9` | Select session | Attach (outside tmux) or switch (inside tmux) |
-| `Enter` | Quick action | Attach to first session / stay in current |
-| `h` `?` | Help | Show comprehensive help screen |
-| `q` | Quit | Exit picker / return to current session |
-
-### Session Management
-| Key | Action | Description |
-|-----|--------|-------------|
-| `n` | New session | Create session with custom directory |
-| `c` | Close session | Kill selected session with confirmation |
-| `R` | Rename | Rename session (preserves favorites) |
-| `s` | Session details | View detailed session and window information |
-
-### Filtering & Search
-| Key | Action | Description |
-|-----|--------|-------------|
-| `f` | Favorites filter | Toggle showing only starred sessions |
-| `r` | Recent filter | Toggle showing only recently used sessions |
-| `/` | Search | Filter sessions by name |
-| `x` | Clear filters | Remove all active filters |
-
-### Power Features
-| Key | Action | Description |
-|-----|--------|-------------|
-| `⭐` | Toggle favorite | Add/remove session from favorites |
-| `t` | Templates | Create session from saved template |
-| `d` | Detach & reopen | Detach from tmux and reopen picker (tmux mode) |
-| `w` | Native chooser | Open tmux's built-in session chooser (tmux mode) |
-
-## 📁 Configuration Files
-
-tpik stores its configuration in `~/.config/tpik/`:
-
-- **`favorites`** - List of starred session names
-- **`history`** - Recent session history (auto-managed, max 50)
-- **`templates`** - Session templates in format: `name|directory|command`
-
-### Example Template Format
+### Interface Overview
 ```
-development|/home/user/code|nvim
-logs|/var/log|tail -f /var/log/syslog
-dotfiles|/home/user/.config|git status
+╭─────────────────────────────────────────────────────────────╮
+│            🚀 TPIK - Enhanced TMUX Manager 🚀            │
+│                   Modern Terminal Interface                  │
+╰─────────────────────────────────────────────────────────────╯
+
+┌─ Search ─────────────────────────────────────────────────────┐
+│ 🔍 Search sessions...                                       │
+└─────────────────────────────────────────────────────────────┘
+
+┌─ Sessions ───────────────────────────────────────────────────┐
+│ ★ ● main (3w) - 08/04 15:30 [nvim] [CURRENT]               │
+│ ☆ ○ development (2w) - 08/04 14:20 [zsh]                   │
+│ ⭐ ● background (1w) - 08/04 13:10 [htop]                  │
+└─────────────────────────────────────────────────────────────┘
+
+┌─ Controls ───────────────────────────────────────────────────┐
+│ [🎯 Attach] [✨ New] [💀 Kill] [⭐ Favorite] [🔖 Filter] │
+│                   [🔄 Refresh] [❌ Quit]                    │
+└─────────────────────────────────────────────────────────────┘
+
+🟢 Ready - Welcome to tpik!
 ```
 
-## 🎯 Use Cases
+### Keyboard Shortcuts
+| Key | Action | Description |
+|-----|--------|-------------|
+| `Enter` | Attach | Attach to selected session |
+| `N` | New Session | Create new session |
+| `Del` | Kill Session | Delete selected session |
+| `Space` | Toggle Favorite | Add/remove from favorites |
+| `F` | Filter Favorites | Show only starred sessions |
+| `F5` | Refresh | Reload session list |
+| `Q` | Quit | Exit application |
+| `🔍` | Search | Type to filter sessions |
 
-### Daily Development Workflow
+---
+
+## 🎨 Modern Design Features
+
+### Visual Indicators
+- **★** / **☆** - Favorite status (filled/empty star)
+- **●** / **○** - Attachment status (filled/empty circle)  
+- **🚀** - App header with gradient background
+- **🟢** - Status indicators with emoji feedback
+- **[CURRENT]** - Highlights your current session
+
+### Color Coding
+- **Green text** - Currently attached sessions
+- **Yellow stars** - Favorite sessions  
+- **Cyan numbers** - Window counts
+- **Dim text** - Timestamps and metadata
+- **Gradient buttons** - Modern button styling with hover effects
+
+### Smart Features
+- **Responsive layout** - Adapts to terminal size
+- **Rich text rendering** - Beautiful typography and spacing
+- **Context awareness** - Different behavior inside vs outside tmux
+- **Error recovery** - Graceful handling of edge cases
+
+---
+
+## 📁 Configuration
+
+tpik stores configuration in `~/.config/tpik/`:
+
+- **`favorites`** - Your starred sessions (one per line)
+- **`templates`** - Session templates for future use
+- **`history`** - Usage history and statistics
+
+### Example favorites file:
+```
+development
+main
+background
+monitoring
+```
+
+---
+
+## 🔧 Technical Details
+
+### Requirements
+- **Python 3.8+** - Modern Python with type hints
+- **tmux** - Terminal multiplexer 
+- **Textual** - Modern TUI framework
+- **Rich** - Beautiful terminal formatting
+
+### Architecture
+- **Python package** - Proper packaging with `pyproject.toml`
+- **Virtual environment** - Isolated dependencies
+- **Modern TUI** - Built on Textual framework for reliability
+- **Type hints** - Full typing for maintainability
+- **Error handling** - Comprehensive exception management
+
+### Platform Support
+- ✅ **Linux** - Full support
+- ✅ **macOS** - Full support  
+- ✅ **WSL** - Works in Windows Subsystem for Linux
+- ❌ **Windows** - Not supported (tmux requirement)
+
+---
+
+## 🆚 Migration from v2.0
+
+If you're upgrading from the old bash version:
+
+### Uninstall Old Version
 ```bash
-tp          # Launch picker
-f           # Filter to favorites
-1           # Jump to main development session
+# Remove old script
+rm ~/scripts/tpik.sh
+
+# Remove old alias from shell config
+sed -i '/tp.*scripts\/tpik.sh/d' ~/.bashrc
+
+# Reload shell
+source ~/.bashrc
 ```
 
-### Project Template Usage
+### Install New Version
 ```bash
-tp          # Launch picker
-t           # Create from template
-1           # Select "development" template
-# Creates session in ~/code with nvim running
+curl -sSL https://raw.githubusercontent.com/sobechestnut-dev/tpik/main/install-tui.sh | bash
 ```
 
-### Session Management from Inside TMUX
+Your favorites will be preserved if stored in `~/.config/tpik/favorites`.
+
+---
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**"tmux not available"**
 ```bash
-# Inside any tmux session:
-tp          # Launch picker (shows "Inside session: current")
-d           # Detach and reopen picker outside tmux
-# OR
-2           # Instantly switch to session #2
-# OR
-w           # Open native tmux chooser for tree view
+# Ubuntu/Debian
+sudo apt install tmux
+
+# macOS
+brew install tmux
 ```
 
-## 🔧 Advanced Features
+**"python3-venv not available"**
+```bash
+# Ubuntu/Debian  
+sudo apt install python3-venv
 
-### Session Status Indicators
-- **⭐** - Favorited session (quick access with `f` filter)
-- **●** - Currently attached session (green highlight)
-- **Window preview** - Shows first 3 window names
+# Usually included on macOS
+```
 
-### Smart Context Awareness
-- **Outside tmux**: Full attach/create functionality
-- **Inside tmux**: Session switching, detach options, native integration
-- **Help system**: Context-sensitive help and quick reference
+**"Command not found: tpik"**
+```bash
+# Add to PATH
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
 
-### Template System
-Create reusable session configurations:
-1. Press `t` to access templates
-2. Press `n` to create new template
-3. Specify name, directory, and optional startup command
-4. Templates persist across sessions
+**"Import errors"**
+```bash
+# Reinstall in clean environment
+rm -rf ~/.local/share/tpik
+curl -sSL https://raw.githubusercontent.com/sobechestnut-dev/tpik/main/install-tui.sh | bash
+```
 
-## 📋 Requirements
-
-- **tmux** - Terminal multiplexer (tested with tmux 3.0+)
-- **bash** - Uses bash-specific features
-- **ANSI color support** - Most modern terminals
-- **date command** - For timestamp formatting (optional)
+---
 
 ## 🤝 Contributing
 
-Contributions welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome! This is a modern Python project using:
+
+- **Textual** for the TUI framework
+- **Rich** for text formatting  
+- **Type hints** throughout
+- **Modern Python** practices
 
 ### Development Setup
 ```bash
 git clone https://github.com/sobechestnut-dev/tpik.git
 cd tpik
-# Edit scripts/tpik.sh
-# Test with: ./scripts/tpik.sh
+
+# Create development environment
+python3 -m venv venv
+source venv/bin/activate
+pip install -e .
+
+# Run from source
+python -m tpik.app
 ```
+
+---
 
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+---
 
-- Built on the excellent foundation of [tmux](https://github.com/tmux/tmux)
-- Inspired by the need for better session management workflows
-- Thanks to the tmux community for feedback and ideas
+## 🙏 Credits
+
+- **Textual Framework** - For the amazing TUI capabilities
+- **Rich Library** - For beautiful terminal formatting
+- **TMUX** - The foundation this tool is built upon
+- **Python Community** - For the excellent ecosystem
 
 ---
 
-**📞 Support**: Found a bug or have a feature request? [Open an issue](https://github.com/sobechestnut-dev/tpik/issues)
-
+**🐛 Found a bug?** [Open an issue](https://github.com/sobechestnut-dev/tpik/issues)  
+**💡 Feature request?** [Start a discussion](https://github.com/sobechestnut-dev/tpik/discussions)  
 **⭐ Like this project?** Give it a star on GitHub!
+
+---
+
+*tpik v3.0 - Modern TMUX session management made beautiful* 🚀

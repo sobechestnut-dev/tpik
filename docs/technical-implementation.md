@@ -1,174 +1,371 @@
-TMUX Picker Script - Technical Implementation Guide
+# tpik - Technical Implementation Guide
 
-🔍 Overview
+## 🏗️ Architecture Overview
 
-This Bash script is a terminal-based utility to visually select, create, or close active tmux sessions using a keyboard-driven menu. It’s designed for quick access, minimal typing, and enhanced usability from the command line.
-
-
----
-
-📁 File Structure
-
-Recommended location:
-
-~/scripts/tmux-picker.sh
-
-Permissions:
-
-chmod +x ~/scripts/tmux-picker.sh
-
-Alias configuration (e.g., in .bashrc or .basic):
-
-alias tp='~/scripts/tmux-picker.sh'
-
+tpik is built as a modern Python application using the Textual framework for creating beautiful terminal user interfaces. This document provides technical details about the implementation, architecture decisions, and development considerations.
 
 ---
 
-⚙️ Dependencies
+## 📦 Project Structure
 
-tmux: Terminal multiplexer
-
-bash: POSIX-compliant shell (for associative arrays, string manipulation, ANSI color support)
-
-ANSI color support in terminal
-
-
-
----
-
-� Script Logic Breakdown
-
-1. Header and Styling Setup
-
-Defines ANSI escape codes for color formatting.
-
-Clears screen and prints stylized ASCII header.
-
-
-RED='\033[0;31m'
-CYAN='\033[0;36m'
-echo -e "${CYAN}${BOLD}"
-echo "╔═══ ... ═══╗"
-...
-
+```
+tpik/
+├── pyproject.toml              # Python package configuration
+├── README.md                   # User documentation
+├── CLAUDE.md                   # AI assistant guidance
+├── install-tui.sh              # Automated installer script
+├── uninstall-old.sh           # Legacy version removal
+├── tpik/                       # Python package
+│   ├── __init__.py            # Package initialization
+│   ├── app.py                 # Main TUI application
+│   └── simple_app.py          # Simplified version (future use)
+├── scripts/                    # Legacy bash scripts
+│   └── tpik.sh               # Original bash implementation
+└── docs/                      # Documentation
+    ├── readme.md              # User-friendly overview
+    └── technical-implementation.md  # This file
+```
 
 ---
 
-2. Check for tmux Installation
+## 🔧 Core Components
 
-if ! command -v tmux &>/dev/null; then
-    echo -e "${RED}Error: tmux not installed${RESET}"
-    exit 1
-fi
+### 1. TmuxSession Class
+**Purpose**: Data model representing a tmux session
+**Location**: `tpik/app.py`
 
+```python
+class TmuxSession:
+    def __init__(self, name: str, created: str, windows: int, 
+                 attached: bool = False, window_preview: str = ""):
+        self.name = name
+        self.created = created  
+        self.windows = windows
+        self.attached = attached
+        self.window_preview = window_preview
+        self.is_favorite = False
+```
 
----
+**Key Properties**:
+- `status_icon`: Returns "●" for attached, "○" for detached
+- `favorite_icon`: Returns "★" for favorited, "☆" for regular
 
-3. Get Active Sessions
+### 2. TmuxManager Class
+**Purpose**: Handles all tmux operations and configuration management
+**Location**: `tpik/app.py`
 
-Uses tmux list-sessions with format #S (session name only), parsed into an indexed array.
+**Key Methods**:
+- `is_tmux_available()`: Checks if tmux is installed
+- `is_inside_tmux()`: Detects if running inside a tmux session
+- `get_sessions()`: Retrieves and parses session data
+- `attach_session()`: Safely attaches to sessions
+- `create_session()`: Creates new sessions with validation
+- `kill_session()`: Removes sessions with safety checks
+- `load_favorites()` / `save_favorites()`: Persistent favorites management
 
-mapfile -t sessions < <(tmux list-sessions -F "#S" 2>/dev/null)
+**Error Handling**: All methods return `tuple[bool, str]` for success status and user messages.
 
+### 3. TpikApp Class
+**Purpose**: Main Textual application with modern UI
+**Location**: `tpik/app.py`
 
----
-
-4. Display Menu Options
-
-Enumerates all sessions with numeric selection and adds key options:
-
-1, 2, 3, etc. to attach to a session
-
-n to create a new session
-
-c followed by number to close a session
-
-q to quit
-
-
-Example:
-
-[1] dev
-[2] logs
-[n] New Session
-[c] Close Session (press then session number)
-[q] Quit
-
-
----
-
-5. New Session Handling
-
-If user presses n, prompt for session name and create new tmux session:
-
-read -p "Enter new session name: " name
-if [ -n "$name" ]; then
-  tmux new-session -s "$name"
-fi
-
+**Key Features**:
+- CSS-based styling with gradients and modern design
+- Reactive attributes for state management
+- Async event handling for smooth interactions
+- ListView-based session display for performance
 
 ---
 
-6. Close Session Handling
+## 🎨 UI Framework: Textual
 
-If user presses c, prompt for session number to close:
+### CSS Styling System
+tpik uses Textual's CSS system for modern styling:
 
-read -p "Session number to close: " num
-session_to_kill="${sessions[$((num-1))]}"
-tmux kill-session -t "$session_to_kill"
+```css
+.app-header {
+    background: linear-gradient(90deg, #0f4c75 0%, #3282b8 50%, #bbe1fa 100%);
+    color: white;
+    text-align: center;
+    height: 5;
+}
 
+.primary-btn {
+    background: $primary;
+    color: white;
+    border: none;
+    text-style: bold;
+}
+```
 
----
+### Widget Hierarchy
+```
+TpikApp
+├── Static (Header with gradient)
+├── Container (Main)
+│   ├── Container (Search)
+│   │   └── Input (Search box)
+│   ├── Container (Sessions)
+│   │   └── ListView (Session list)
+│   └── Container (Controls)
+│       └── Container (Buttons)
+│           ├── Button (Attach)
+│           ├── Button (New)
+│           ├── Button (Kill)
+│           ├── Button (Favorite)
+│           ├── Button (Filter)
+│           ├── Button (Refresh)
+│           └── Button (Quit)
+└── Static (Status Bar)
+```
 
-7. Attach to Session
+### Reactive Programming
+Uses Textual's reactive system for state management:
 
-On number key press, validate index and attach:
-
-tmux attach-session -t "${sessions[$index]}"
-
-
----
-
-� Performance and UX Enhancements
-
-Immediate visual feedback
-
-Keyboard-friendly
-
-Action hints with color and keybindings
-
-
-
----
-
-� Future Extensions (Optional)
-
-Feature	Tool/Dependency	Benefit
-
-Fuzzy select	fzf	Search/filter session list
-Arrow keys	select, read	Navigate list interactively
-UI dialog	dialog, whiptail	Popup-based selection UI
-Mouse support	dialog	Clickable tmux menu
-
-
-
----
-
-� Troubleshooting
-
-Problem	Solution
-
-tmux not found error	Install tmux with sudo apt install tmux
-Nothing happens after pressing key	Ensure Num Lock is on and terminal supports input
-Script not found	Check file path and permissions
-
-
+```python
+sessions: reactive[List[TmuxSession]] = reactive([])
+filtered_sessions: reactive[List[TmuxSession]] = reactive([])
+search_query: reactive[str] = reactive("")
+show_favorites_only: reactive[bool] = reactive(False)
+```
 
 ---
 
-✍️ Author
+## 🔄 Session Management Logic
 
-Script & Documentation By: Nathaniel "Sobe" Chestnut
-Designed for practical tmux workflows and visual accessibility.
+### Session Discovery
+1. Execute `tmux list-sessions -F "#{session_name}|#{session_created}|..."`
+2. Parse pipe-delimited output
+3. Convert timestamps to readable format
+4. Load favorites from `~/.config/tpik/favorites`
+5. Create `TmuxSession` objects with all metadata
 
+### Safe Attachment Logic
+```python
+def attach_session(self, session_name: str) -> tuple[bool, str]:
+    if self.is_inside_tmux():
+        # Use switch-client for session switching
+        subprocess.run(["tmux", "switch-client", "-t", session_name])
+    else:
+        # Validate session exists first
+        result = subprocess.run(["tmux", "has-session", "-t", session_name])
+        if result.returncode == 0:
+            # Store session name for wrapper script handling
+            session_file = Path.home() / ".tpik_session"
+            session_file.write_text(session_name)
+```
 
+### Favorites Persistence
+- **Storage**: `~/.config/tpik/favorites` (one session name per line)
+- **Loading**: Robust handling of empty files and missing directories
+- **Saving**: Atomic writes with sorted output for consistency
+
+---
+
+## 🎯 Event Handling
+
+### Keyboard Shortcuts
+```python
+async def on_key(self, event: events.Key) -> None:
+    key = event.key
+    if key == "enter":
+        await self.action_attach()
+    elif key == "n":
+        await self.action_new_session()
+    elif key == "delete":
+        await self.action_kill_session()
+    # ... more shortcuts
+```
+
+### Button Events
+```python
+async def on_button_pressed(self, event: Button.Pressed) -> None:
+    button_id = event.button.id
+    if button_id == "attach":
+        await self.action_attach()
+    # ... handle other buttons
+```
+
+### Search Input
+```python
+async def on_input_changed(self, event: Input.Changed) -> None:
+    if event.input.id == "search":
+        self.search_query = event.value
+        await self.update_filtered_sessions()
+```
+
+---
+
+## 📁 Configuration Management
+
+### Configuration Directory Structure
+```
+~/.config/tpik/
+├── favorites          # Starred sessions (one per line)
+├── templates          # Session templates (future feature)
+└── history           # Usage history (future feature)
+```
+
+### File Format Examples
+
+**favorites**:
+```
+development
+main
+background
+monitoring
+```
+
+**Robust File Handling**:
+```python
+def load_favorites(self) -> set:
+    try:
+        if not self.favorites_file.exists():
+            return set()
+        content = self.favorites_file.read_text().strip()
+        if not content:
+            return set()
+        return set(line.strip() for line in content.split("\n") if line.strip())
+    except Exception:
+        return set()  # Graceful degradation
+```
+
+---
+
+## 🚀 Installation & Deployment
+
+### Virtual Environment Strategy
+- **Location**: `~/.local/share/tpik/`
+- **Python**: Uses system Python 3.8+
+- **Dependencies**: Isolated from system packages
+- **Wrapper**: `~/.local/bin/tpik` script for easy execution
+
+### Installation Script (`install-tui.sh`)
+1. **Dependency Checks**: Validates Python 3.8+, tmux, python3-venv
+2. **Environment Setup**: Creates clean virtual environment
+3. **Package Installation**: Installs from GitHub with pip
+4. **Integration**: Creates wrapper script and shell alias
+5. **Configuration**: Sets up config directories
+
+### Package Configuration (`pyproject.toml`)
+```toml
+[project]
+name = "tpik"
+version = "3.0.0"
+dependencies = [
+    "textual>=0.45.0",
+    "rich>=13.0.0",
+]
+
+[project.scripts]
+tpik = "tpik.app:main"
+```
+
+---
+
+## 🔍 Error Handling Strategy
+
+### Comprehensive Exception Management
+```python
+def tmux_operation(self) -> tuple[bool, str]:
+    try:
+        result = subprocess.run([...], capture_output=True, text=True, check=False)
+        if result.returncode == 0:
+            return True, "Success message"
+        else:
+            return False, f"Failed: {result.stderr.strip()}"
+    except Exception as e:
+        return False, f"Error: {str(e)}"
+```
+
+### User-Friendly Error Messages
+- **No tmux**: "❌ Error: tmux is not installed or not available"
+- **No sessions**: Shows helpful create session option
+- **Network issues**: Graceful degradation with offline functionality
+- **Permission errors**: Clear explanation and resolution steps
+
+---
+
+## 🎨 Rich Text Rendering
+
+### Session Display Format
+```python
+display_text = Text()
+display_text.append(f"{session.favorite_icon} ", style="yellow")
+display_text.append(f"{session.status_icon} ", style=status_color)
+display_text.append(f"{session.name}", style=name_style)
+display_text.append(f" ({session.windows}w)", style="cyan")
+display_text.append(f" - {session.created}", style="dim")
+```
+
+### Color Scheme
+- **Green**: Attached sessions and success messages
+- **Yellow**: Favorite stars and warnings
+- **Cyan**: Metadata like window counts
+- **Dim**: Timestamps and secondary information
+- **Red**: Error messages and dangerous actions
+
+---
+
+## 🔧 Development Workflow
+
+### Local Development Setup
+```bash
+git clone https://github.com/sobechestnut-dev/tpik.git
+cd tpik
+python3 -m venv venv
+source venv/bin/activate
+pip install -e .
+python -m tpik.app
+```
+
+### Testing Strategy
+- **Manual Testing**: Primary method using real tmux sessions
+- **Edge Cases**: Empty session lists, permission errors, network issues
+- **Integration**: Test inside/outside tmux scenarios
+- **Platform Testing**: Linux and macOS compatibility
+
+### Code Quality
+- **Type Hints**: Full typing throughout for maintainability
+- **Error Handling**: Defensive programming with graceful degradation
+- **Documentation**: Comprehensive docstrings and comments
+- **Modern Python**: Uses async/await, pathlib, and current best practices
+
+---
+
+## 🚀 Performance Considerations
+
+### Efficient Session Loading
+- **Batch Operations**: Single tmux command gets all session data
+- **Lazy Loading**: Only load favorites when needed
+- **Caching**: Reactive updates prevent unnecessary recomputation
+
+### UI Responsiveness
+- **Async Operations**: Non-blocking tmux calls with `@work` decorator
+- **ListView**: Efficient rendering for large session lists
+- **Debounced Search**: Smooth filtering without lag
+
+### Memory Management
+- **Minimal State**: Only store essential session data
+- **Cleanup**: Proper resource cleanup on exit
+- **Garbage Collection**: Let Python handle memory management
+
+---
+
+## 🔮 Future Enhancements
+
+### Planned Features
+- **Session Templates**: Save and reuse project setups
+- **Usage History**: Track and suggest frequently used sessions
+- **Themes**: Customizable color schemes and styling
+- **Plugin System**: Extensible architecture for custom features
+
+### Technical Improvements
+- **Unit Tests**: Comprehensive test suite with mocking
+- **Configuration File**: TOML-based settings management
+- **Logging**: Structured logging for debugging
+- **Packaging**: Distribution via PyPI for easier installation
+
+---
+
+This technical implementation provides a solid foundation for a modern, reliable, and beautiful tmux session manager that can evolve with user needs and maintain high code quality standards.
