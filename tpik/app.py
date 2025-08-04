@@ -207,14 +207,12 @@ class SessionTable(DataTable):
         
     def on_mount(self) -> None:
         """Set up the table columns."""
-        self.add_columns(
-            ("", "fav", 3),  # Favorite icon
-            ("", "status", 3),  # Status icon  
-            ("Session", "name", 20),
-            ("Created", "created", 12),
-            ("Win", "windows", 5),
-            ("Window", "preview", 15),
-        )
+        self.add_column("", width=3, key="fav")  # Favorite icon
+        self.add_column("", width=3, key="status")  # Status icon  
+        self.add_column("Session", width=20, key="name")
+        self.add_column("Created", width=12, key="created")
+        self.add_column("Win", width=5, key="windows")
+        self.add_column("Window", width=15, key="preview")
 
 
 class TpikApp(App):
