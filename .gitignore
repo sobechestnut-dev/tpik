@@ -1,0 +1,38 @@
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor files
+*~
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
+.temp/
+/tmp/
+
+# Log files
+*.log
+
+# Config test files (don't commit personal configs)
+test_favorites
+test_history
+test_templates
+
+# Backup files
+*.bak
+*.backup
+
+# Archive files
+*.tar.gz
+*.zip
+*.rar
