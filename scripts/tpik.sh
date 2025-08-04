@@ -257,13 +257,13 @@ while true; do
         echo -e "${GRAY}────────────────────────────────────────────────────────────────${RESET}"
         
         for i in "${!sessions[@]}"; do
-            local session="${sessions[$i]}"
-            local info="${session_details[$session]}"
+            session="${sessions[$i]}"
+            info="${session_details[$session]}"
             IFS='|' read -r created windows attached window_preview <<< "$info"
             
             # Color coding based on status
-            local session_color="$RESET"
-            local status_indicator=""
+            session_color="$RESET"
+            status_indicator=""
             
             if is_favorite "$session"; then
                 status_indicator="${YELLOW}⭐${RESET}"
