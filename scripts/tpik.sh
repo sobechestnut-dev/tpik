@@ -79,7 +79,11 @@ show_header() {
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║                    TMUX SESSION PICKER v2.0                 ║"
     if [ -n "$INSIDE_TMUX" ]; then
-        printf "║                 ${YELLOW}Inside session: %-10s${CYAN}               ║\n" "$CURRENT_SESSION"
+        session_text="Inside session: $CURRENT_SESSION"
+        padding_length=$((46 - ${#session_text}))
+        left_padding=$((padding_length / 2))
+        right_padding=$((padding_length - left_padding))
+        printf "║%*s${YELLOW}%s${CYAN}%*s║${RESET}\n" "$left_padding" "" "$session_text" "$right_padding" ""
     else
         echo "║                      Enhanced Edition                        ║"
     fi
