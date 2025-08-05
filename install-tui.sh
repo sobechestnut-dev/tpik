@@ -44,6 +44,83 @@ print_error() {
     echo -e "${RED}❌ $1${NC}"
 }
 
+check_existing_installation() {
+    print_step "Checking for existing installation..."
+    
+    local has_existing=false
+    local existing_version=""
+    
+    # Check for existing virtual environment
+    if [ -d "$VENV_DIR" ]; then
+        has_existing=true
+    fi
+    
+    # Check for existing wrapper script
+    if [ -f "$INSTALL_DIR/tpik" ]; then
+        has_existing=true
+    fi
+    
+    # Check for existing command
+    if command -v tpik &> /dev/null; then
+        has_existing=true
+        existing_version=$(tpik --version 2>/dev/null || echo "unknown")
+    fi
+    
+    if [ "$has_existing" = true ]; then
+        print_warning "Existing tpik installation detected"
+        echo
+        echo "Found existing installation at:"
+        [ -d "$VENV_DIR" ] && echo "  • Virtual environment: $VENV_DIR"
+        [ -f "$INSTALL_DIR/tpik" ] && echo "  • Wrapper script: $INSTALL_DIR/tpik"
+        [ -n "$existing_version" ] && echo "  • Version: $existing_version"
+        echo
+        echo "What would you like to do?"
+        echo "  1) Replace existing installation (recommended)"
+        echo "  2) Cancel installation"
+        echo "  3) Uninstall existing and exit"
+        echo
+        read -p "Enter your choice (1-3): " choice
+        
+        case $choice in
+            1)
+                print_step "Removing existing installation..."
+                [ -d "$VENV_DIR" ] && rm -rf "$VENV_DIR"
+                [ -f "$INSTALL_DIR/tpik" ] && rm -f "$INSTALL_DIR/tpik"
+                print_success "Existing installation removed"
+                ;;
+            2)
+                print_warning "Installation cancelled by user"
+                exit 0
+                ;;
+            3)
+                print_step "Uninstalling existing tpik..."
+                [ -d "$VENV_DIR" ] && rm -rf "$VENV_DIR"
+                [ -f "$INSTALL_DIR/tpik" ] && rm -f "$INSTALL_DIR/tpik"
+                
+                # Remove alias from shell configs
+                for config_file in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile"; do
+                    if [ -f "$config_file" ] && grep -q "alias tp.*tpik" "$config_file"; then
+                        cp "$config_file" "${config_file}.backup"
+                        grep -v "alias tp.*tpik" "$config_file" > "${config_file}.tmp"
+                        mv "${config_file}.tmp" "$config_file"
+                        print_success "Removed alias from $config_file"
+                    fi
+                done
+                
+                print_success "tpik uninstalled successfully"
+                echo "Please restart your terminal or run: source ~/.bashrc"
+                exit 0
+                ;;
+            *)
+                print_error "Invalid choice. Installation cancelled."
+                exit 1
+                ;;
+        esac
+    else
+        print_success "No existing installation found"
+    fi
+}
+
 check_dependencies() {
     print_step "Checking dependencies..."
     
@@ -92,11 +169,7 @@ check_dependencies() {
 create_venv() {
     print_step "Setting up Python virtual environment..."
     
-    # Remove existing venv if it exists
-    if [ -d "$VENV_DIR" ]; then
-        rm -rf "$VENV_DIR"
-    fi
-    
+    # Create directory if needed
     mkdir -p "$(dirname "$VENV_DIR")"
     python3 -m venv "$VENV_DIR"
     
@@ -234,6 +307,7 @@ print_completion_message() {
 
 main() {
     print_header
+    check_existing_installation
     check_dependencies
     create_venv
     install_package
