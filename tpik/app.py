@@ -492,7 +492,7 @@ class TpikApp(App):
             await self.update_status(f"📍 Inside session: {self.current_session}")
         
         # Load initial sessions
-        await self.refresh_sessions()
+        self.refresh_sessions()
         
     @work(exclusive=True)
     async def refresh_sessions(self) -> None:
@@ -578,7 +578,7 @@ class TpikApp(App):
         elif button_id == "filter-fav":
             await self.action_toggle_favorites_filter()
         elif button_id == "refresh":
-            await self.refresh_sessions()
+            self.refresh_sessions()
         elif button_id == "quit":
             await self.action_quit()
             
@@ -601,7 +601,7 @@ class TpikApp(App):
         elif key == "f":
             await self.action_toggle_favorites_filter()
         elif key == "f5":
-            await self.refresh_sessions()
+            self.refresh_sessions()
         elif key == "q":
             await self.action_quit()
         elif key == "space":
@@ -621,7 +621,7 @@ class TpikApp(App):
             if self.tmux.is_inside_tmux():
                 await self.update_status(f"✅ {message}")
                 # Don't quit when switching inside tmux
-                await self.refresh_sessions()
+                self.refresh_sessions()
             else:
                 # Store the session name for the wrapper script
                 session_file = Path.home() / ".tpik_session"
@@ -640,7 +640,7 @@ class TpikApp(App):
         
         if success:
             await self.update_status(f"✅ {message}")
-            await self.refresh_sessions()
+            self.refresh_sessions()
         else:
             await self.update_status(f"❌ {message}")
             
@@ -661,7 +661,7 @@ class TpikApp(App):
         
         if success:
             await self.update_status(f"✅ {message}")
-            await self.refresh_sessions()
+            self.refresh_sessions()
         else:
             await self.update_status(f"❌ {message}")
             
