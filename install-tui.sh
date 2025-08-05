@@ -79,7 +79,19 @@ check_existing_installation() {
         echo "  2) Cancel installation"
         echo "  3) Uninstall existing and exit"
         echo
-        read -p "Enter your choice (1-3): " choice
+        
+        # Check if we're being piped (stdin is not a terminal)
+        if [ ! -t 0 ]; then
+            print_warning "Running via pipe - automatically choosing option 1 (replace installation)"
+            echo "To get the interactive menu, download and run the script directly:"
+            echo "  wget https://raw.githubusercontent.com/sobechestnut-dev/tpik/main/install-tui.sh"
+            echo "  chmod +x install-tui.sh"
+            echo "  ./install-tui.sh"
+            echo
+            choice=1
+        else
+            read -p "Enter your choice (1-3): " choice
+        fi
         
         case $choice in
             1)
