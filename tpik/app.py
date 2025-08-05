@@ -260,7 +260,7 @@ class TpikApp(App):
     }
     
     .app-header {
-        background: linear-gradient(90deg, #0f4c75 0%, #3282b8 50%, #bbe1fa 100%);
+        background: $primary;
         color: white;
         text-align: center;
         height: 5;
@@ -312,7 +312,7 @@ class TpikApp(App):
     }
     
     .session-list > .session-list--option-highlighted {
-        background: linear-gradient(90deg, $primary 0%, $accent 100%);
+        background: $primary;
         color: white;
         text-style: bold;
     }
@@ -405,7 +405,7 @@ class TpikApp(App):
     
     .status-bar {
         height: 3;
-        background: linear-gradient(90deg, $surface-darken-2 0%, $surface-darken-1 100%);
+        background: $surface-darken-1;
         color: $text;
         padding: 1 2;
         border: solid $accent;
