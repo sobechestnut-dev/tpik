@@ -60,6 +60,13 @@ This will:
 - ✅ Set up the `tpik` command and `tp` alias
 - ✅ Create configuration directories
 
+### Mobile-Friendly Manual Installation
+For mobile devices or when you prefer step-by-step commands:
+```bash
+curl -sSL https://raw.githubusercontent.com/sobechestnut-dev/tpik/main/manual.sh | bash
+```
+This displays easy-to-copy commands you can paste one by one.
+
 ### Manual Installation
 ```bash
 # Clone the repository
